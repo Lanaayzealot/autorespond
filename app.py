@@ -3,15 +3,14 @@ from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-# Load environment variables
-TOKEN = os.getenv("TOKEN")  # Bot Token from BotFather
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Your webhook URL
-PORT = int(os.environ.get("PORT", 10000))  # Default port
+# Retrieve the TOKEN and WEBHOOK_URL from environment variables
+TOKEN = os.getenv("TOKEN")  # Set this environment variable with your bot token
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Your deployed Flask app's URL (e.g., https://autorespond.onrender.com)
 
 # Flask app
 app = Flask(__name__)
 
-# Initialize Telegram bot
+# Initialize Telegram bot with the token
 telegram_app = Application.builder().token(TOKEN).build()
 
 # Start command
@@ -22,36 +21,37 @@ async def start(update: Update, context):
 async def auto_reply(update: Update, context):
     await update.message.reply_text("Hi, I am AFK right now, I will get back to you as soon as I can. Thank you!")
 
-# Stop command (only works locally or on a VPS)
+# Stop command
 async def stop(update: Update, context):
     await update.message.reply_text("🔴 Bot is stopping...")
 
-# Webhook route for Telegram
+# Webhook route for Telegram (use TOKEN in the route)
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("📩 Received Update:", data)  # Debugging line to check if updates are received
+    print("📩 Received Update:", data)  # Debugging log to check if updates are received
     update = Update.de_json(data, telegram_app.bot)
-    telegram_app.create_task(telegram_app.process_update(update))  # Process update immediately
+    telegram_app.create_task(telegram_app.process_update(update))  # Process the update
     return "OK", 200
 
+# Set webhook URL for Telegram
 async def set_webhook():
-    await telegram_app.bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
-    print("✅ Webhook set successfully.")
+    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
+    await telegram_app.bot.set_webhook(url=webhook_url)
+    print(f"✅ Webhook set to {webhook_url}")
 
+# Run bot setup
 async def run_bot():
-    # Add handlers for commands and messages
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("stop", stop))
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_reply))
 
-    await set_webhook()  # Set webhook AFTER adding handlers
+    await set_webhook()  # Set the webhook URL after handlers are added
     print("🤖 Bot is running with webhook...")
 
 def main():
-    # Run bot setup and start Flask server
-    telegram_app.loop.run_until_complete(run_bot())
-    app.run(host="0.0.0.0", port=PORT)  # Start Flask server
+    telegram_app.loop.run_until_complete(run_bot())  # Set up webhook and start bot
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))  # Start Flask server
 
 if __name__ == "__main__":
     main()
