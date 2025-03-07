@@ -16,7 +16,7 @@ if not TOKEN:
 if not WEBHOOK_URL:
     raise ValueError("❌ WEBHOOK_URL is not set. Check environment variables!")
 
-print(f"✅ Loaded Bot Token: {TOKEN[:10]}...")  # Be cautious with logging sensitive data
+print(f"✅ Loaded Bot Token: {TOKEN[:10]}...")  # Print partial token for security
 print(f"✅ Webhook URL: {WEBHOOK_URL}")
 
 # Flask app
@@ -31,17 +31,18 @@ async def start(update: Update, context: CallbackContext):
 
 # Auto-reply to any direct message
 async def auto_reply(update: Update, context: CallbackContext):
-    await update.message.reply_text("🚀 Hi, I am AFK right now, I will get back to you as soon as I can. Thank you!")
+    await update.message.reply_text("🚀 I am not available at the moment.")
 
-# Stop command (for debugging)
+# Stop command (only works locally or on a VPS)
 async def stop(update: Update, context: CallbackContext):
-    await update.message.reply_text("🔴 Bot cannot be stopped remotely on Render.")
+    await update.message.reply_text("🔴 Bot is stopping...")
+    sys.exit()
 
 # Webhook route for Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(), telegram_app.bot)
-    asyncio.run(telegram_app.process_update(update))  # Ensure async execution
+    telegram_app.process_update(update)
     return "OK", 200
 
 async def set_webhook():
@@ -57,12 +58,11 @@ async def main():
 
     # Set webhook
     await set_webhook()
-
-# Run the Flask app and bot setup asynchronously
-if __name__ == "__main__":
-    # Start Flask server
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-
     print("✅ Bot is running with webhook...")
+
+if __name__ == "__main__":
+    # Run the bot setup
+    asyncio.run(main())
+
+    # Start Flask server
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
