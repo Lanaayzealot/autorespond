@@ -19,7 +19,8 @@ async def start(update: Update, context: CallbackContext):
 
 # Auto-reply to any direct message
 async def auto_reply(update: Update, context: CallbackContext):
-    await update.message.reply_text("🚀 I am not available at the moment.")
+    # Send the auto-reply message to anyone who texts the bot
+    await update.message.reply_text("Hi, I am AFK right now, I will get back to you as soon as I can. Thank you!")
 
 # Stop command (only works locally or on a VPS)
 async def stop(update: Update, context: CallbackContext):
