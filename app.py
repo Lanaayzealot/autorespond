@@ -1,63 +1,115 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import requests
 import os
-from flask import Flask, request
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-
-# Load environment variables
+import logging
 from dotenv import load_dotenv
+
+# Load environment variables from .env file
 load_dotenv()
 
-# Retrieve the TOKEN and WEBHOOK_URL from environment variables
-TOKEN = os.getenv("TOKEN")  # Your bot's token
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # The URL for your deployed Flask app
-
-# Flask app
+# Initialize Flask app
 app = Flask(__name__)
+CORS(app)
 
-# Initialize Telegram bot with the token
-telegram_app = Application.builder().token(TOKEN).build()
+# Configure logging (sensitive data should not be logged)
+logging.basicConfig(level=logging.DEBUG)
 
-# Start command handler
-async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("🤖 Auto-reply bot is active!")
+# Load environment variables
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "-1002351667124")
+MESSAGE_THREAD_ID = os.getenv("MESSAGE_THREAD_ID", "59")
+USER_ID_LANA = os.getenv("USER_ID_LANA", "7122508724")
 
-# Auto-reply to any direct message
-async def auto_reply(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hi, I am AFK right now, I will get back to you as soon as I can. Thank you!")
+# Ensure required environment variables are set
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("❌ TELEGRAM_BOT_TOKEN is not set in the environment.")
 
-# Stop command (for testing, e.g., to stop the bot locally or for a clean shutdown)
-async def stop(update: Update, context: CallbackContext):
-    await update.message.reply_text("🔴 Bot is stopping...")
+# Telegram API URL
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
-# Webhook route for Telegram (using the token in the route)
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    data = request.get_json()
-    print(f"📩 Received Update: {data}")  # Log the received update for debugging
-    update = Update.de_json(data, telegram_app.bot)
-    telegram_app.create_task(telegram_app.process_update(update))  # Process the update
-    return "OK", 200
+# Log environment values (excluding sensitive ones)
+logging.debug(f"✅ TELEGRAM_CHAT_ID: {TELEGRAM_CHAT_ID}")
+logging.debug(f"✅ MESSAGE_THREAD_ID: {MESSAGE_THREAD_ID}")
+logging.debug(f"✅ USER_ID_LANA: {USER_ID_LANA}")
 
-# Set the webhook URL for Telegram
-async def set_webhook():
-    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
-    await telegram_app.bot.set_webhook(url=webhook_url)
-    print(f"✅ Webhook set to {webhook_url}")
 
-# Run bot setup and add handlers
-async def run_bot():
-    telegram_app.add_handler(CommandHandler("start", start))
-    telegram_app.add_handler(CommandHandler("stop", stop))
-    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_reply))
+@app.route('/send-message', methods=['POST'])
+def send_message():
+    try:
+        if not request.is_json:
+            logging.warning("❌ Invalid request: Content-Type must be application/json")
+            return jsonify({"success": False, "error": "Invalid content type, expecting JSON"}), 400
 
-    # Set the webhook after handlers are added
-    await set_webhook()
-    print("🤖 Bot is running with webhook...")
+        # Get JSON data from request
+        data = request.json
+        logging.debug(f"📩 Received data: {data}")
 
-# Main function to start everything
-def main():
-    telegram_app.loop.run_until_complete(run_bot())  # Set up webhook and start the bot
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))  # Start Flask server
+        # Validate required fields (eld removed)
+        required_fields = ["name", "dateFrom", "dateTill", "reason", "truckNumber", "company", "pauseInsuranceEld"]
+        if not all(field in data and data[field] for field in required_fields):
+            missing_fields = [field for field in required_fields if field not in data or not data[field]]
+            logging.warning(f"❌ Missing or invalid fields: {missing_fields}")
+            return jsonify({"success": False, "error": f"Missing or invalid fields: {missing_fields}"}), 400
 
-if __name__ == "__main__":
-    main()
+        # Extract values (eld removed)
+        name = data["name"]
+        truck_number = data["truckNumber"]
+        company = data["company"]
+        date_from = data["dateFrom"]
+        date_till = data["dateTill"]
+        reason = data["reason"]
+        pause_insurance_eld = data["pauseInsuranceEld"]
+
+        # Construct the message for Telegram (eld removed)
+        message = (
+            f"📝 *TIME-OFF REQUEST* \n\n"
+            f"🔹 *Name:* {name}\n"
+            f"🔹 *Truck Number:* {truck_number}\n"
+            f"🔹 *Company:* {company}\n"
+            f"🔹 *Date Off:* From {date_from} till {date_till}\n"
+            f"🔹 *Reason:* {reason}\n"
+            f"🔹 *Pause Insurance and ELD?:* {pause_insurance_eld}\n\n"
+            f"⚠️ The driver {name} will be back to work on {date_till}."
+        )
+
+        # Send message to Telegram group
+        payload_group = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
+            "parse_mode": "Markdown",
+            "message_thread_id": int(MESSAGE_THREAD_ID)
+        }
+
+        response = requests.post(TELEGRAM_API_URL, json=payload_group)
+        logging.debug(f"📨 Telegram Group Response: {response.status_code} {response.text}")
+        response.raise_for_status()
+
+        # Send a message to Lana (eld mention removed)
+        payload_lana = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": f"Good day [Lana](tg://user?id={USER_ID_LANA})! "
+                    f"Please check the time-off request for driver {name}. "
+                    f"They will be back on {date_till}. Thank you!",
+            "parse_mode": "Markdown",
+            "message_thread_id": int(MESSAGE_THREAD_ID)
+        }
+        response_lana = requests.post(TELEGRAM_API_URL, json=payload_lana)
+        logging.debug(f"📨 Telegram Lana Response: {response_lana.status_code} {response_lana.text}")
+
+        if not response_lana.ok:
+            logging.error(f"❌ Error sending message to Lana: {response_lana.text}")
+            return jsonify({"success": False, "error": "Failed to notify Lana."}), 500
+
+        return jsonify({"success": True, "message": "Your request has been sent successfully!"})
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"❌ Telegram API error: {str(e)}")
+        return jsonify({"success": False, "error": f"Telegram API error: {str(e)}"}), 500
+    except Exception as e:
+        logging.error(f"❌ Server error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
