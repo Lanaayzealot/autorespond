@@ -31,19 +31,17 @@ async def start(update: Update, context: CallbackContext):
 
 # Auto-reply to any direct message
 async def auto_reply(update: Update, context: CallbackContext):
-    await update.message.reply_text("🚀 I am not available at the moment.")
+    await update.message.reply_text("🚀 Hi, I am AFK right now, I will get back to you as soon as I can. Thank you!")
 
-# Stop command (only works locally or on a VPS)
+# Stop command (for debugging)
 async def stop(update: Update, context: CallbackContext):
-    await update.message.reply_text("🔴 Bot is stopping...")
-    # It would be better to use a more graceful shutdown method in production
-    sys.exit()
+    await update.message.reply_text("🔴 Bot cannot be stopped remotely on Render.")
 
 # Webhook route for Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(), telegram_app.bot)
-    telegram_app.process_update(update)
+    asyncio.run(telegram_app.process_update(update))  # Ensure async execution
     return "OK", 200
 
 async def set_webhook():
@@ -59,11 +57,12 @@ async def main():
 
     # Set webhook
     await set_webhook()
-    print("✅ Bot is running with webhook...")
 
+# Run the Flask app and bot setup asynchronously
 if __name__ == "__main__":
-    # Run the bot setup asynchronously
-    asyncio.run(main())
+    # Start Flask server
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
 
-    # Start Flask server (ensure Flask supports async)
+    print("✅ Bot is running with webhook...")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
