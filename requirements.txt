@@ -1,5 +1,6 @@
-Flask
+python-dotenvFlask
 requests
 gunicorn
 python-telegram-bot==20.0
 flask-cors
+python-dotenv
