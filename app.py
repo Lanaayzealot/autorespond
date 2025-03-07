@@ -29,8 +29,10 @@ async def stop(update: Update, context):
 # Webhook route for Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
-    update = Update.de_json(request.get_json(), telegram_app.bot)
-    telegram_app.bot.loop.create_task(telegram_app.process_update(update))  # Process update immediately
+    data = request.get_json()
+    print("📩 Received Update:", data)  # Debugging line to check if updates are received
+    update = Update.de_json(data, telegram_app.bot)
+    telegram_app.create_task(telegram_app.process_update(update))  # Process update immediately
     return "OK", 200
 
 async def set_webhook():
@@ -38,14 +40,17 @@ async def set_webhook():
     print("✅ Webhook set successfully.")
 
 async def run_bot():
-    await set_webhook()
+    # Add handlers for commands and messages
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("stop", stop))
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_reply))
+
+    await set_webhook()  # Set webhook AFTER adding handlers
     print("🤖 Bot is running with webhook...")
 
 def main():
-    telegram_app.loop.run_until_complete(run_bot())  # Set up webhook and handlers
+    # Run bot setup and start Flask server
+    telegram_app.loop.run_until_complete(run_bot())
     app.run(host="0.0.0.0", port=PORT)  # Start Flask server
 
 if __name__ == "__main__":
