@@ -1,14 +1,15 @@
 import os
+import asyncio
 from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import traceback
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
-WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # URL for your webhook (e.g., https://yourdomain.com/webhook)
+WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 app = Flask(__name__)
 
@@ -18,45 +19,42 @@ bot = Application.builder().token(TOKEN).build()
 # Define handlers for the bot
 async def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command."""
-    update.message.reply_text('Hello! I am your auto-responder bot.')
+    await update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
     """Auto-responds to any text message from the user with ID 7122508724."""
-    # Check if the message is from the user with ID 7122508724
     if update.message.from_user.id == 7122508724:
-        # Send auto-response message
-        update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
+        await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_respond))
 
 @app.route('/webhook', methods=['POST'])
-def webhook() -> str:
+async def webhook() -> str:
     """Handles incoming webhook requests from Telegram."""
     try:
-        # Use Flask's request.get_json() to parse JSON data into a dictionary
         json_data = request.get_json()
         print("Incoming Update:", json_data)  # Debugging line
 
         if json_data is None:
             raise ValueError("Invalid JSON data")
 
-        # Create the Update object using the parsed JSON data
         update = Update.de_json(json_data, bot.bot)
-        
-        # Process the update with the bot
-        bot.process_update(update)
+
+        # Use `bot.update_queue.put()` instead of `bot.process_update(update)`
+        await bot.update_queue.put(update)
+
         return 'OK'
     
     except Exception as e:
         print("Error in Webhook:", str(e))
-        print("Traceback:", traceback.format_exc())  # Print traceback for more detailed error logs
+        print("Traceback:", traceback.format_exc())
         return 'Internal Server Error', 500
 
 def set_webhook() -> None:
     """Sets the webhook for the Telegram bot."""
-    bot.bot.set_webhook(WEBHOOK_URL)
+    asyncio.run(bot.bot.set_webhook(WEBHOOK_URL))
 
 @app.route('/')
 def home() -> str:
