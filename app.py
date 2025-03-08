@@ -11,14 +11,14 @@ load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
-# Enable logging for debugging
+# Enable logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Initialize the bot properly
+# Create the bot application
 bot = Application.builder().token(TOKEN).build()
 
 async def start(update: Update, context: CallbackContext) -> None:
@@ -50,6 +50,11 @@ async def webhook():
             raise ValueError("Invalid JSON data")
 
         update = Update.de_json(json_data, bot.bot)
+
+        # Ensure bot is initialized before processing updates
+        if not bot._initialized:
+            await bot.initialize()
+
         await bot.process_update(update)  # Process the update
 
         return 'OK', 200
@@ -67,7 +72,7 @@ async def main():
     await bot.initialize()  # Ensure bot is initialized
     await set_webhook()  # Set webhook
 
-    # Run Flask app (using async mode)
+    # Run Flask app asynchronously
     loop = asyncio.get_running_loop()
     loop.create_task(app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False))
 
