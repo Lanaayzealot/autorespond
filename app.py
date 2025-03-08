@@ -67,16 +67,15 @@ async def webhook() -> tuple[str, int]:
         logger.error(f"Error in Webhook: {e}", exc_info=True)
         return 'Internal Server Error', 500
 
-async def set_webhook() -> None:
-    """Sets the webhook for the Telegram bot asynchronously."""
+async def main():
+    """Initialize the bot and set up the webhook."""
     await bot.initialize()  # Ensure bot is properly initialized
-    success = await bot.bot.set_webhook(WEBHOOK_URL)
-    
-    if success:
-        logger.info("Webhook set successfully!")
-    else:
-        logger.error("Failed to set webhook.")
+    await bot.bot.set_webhook(WEBHOOK_URL)
+    logger.info("Webhook set successfully!")
+
+    # Run Flask app in an async event loop
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, app.run, "0.0.0.0", 5000)
 
 if __name__ == '__main__':
-    asyncio.run(set_webhook())  # Set webhook
-    app.run(host='0.0.0.0', port=5000)  # Run Flask app
+    asyncio.run(main())  # Initialize bot and start the webhook
