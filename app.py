@@ -35,15 +35,20 @@ bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_respond))
 def webhook() -> str:
     """Handles incoming webhook requests from Telegram."""
     try:
-        json_str = request.get_data().decode('UTF-8')
-        print("Incoming Update:", json_str)  # Debugging line
-        update = Update.de_json(json_str, bot.bot)
+        # Use Flask's request.get_json() to parse JSON data into a dictionary
+        json_data = request.get_json()
+        print("Incoming Update:", json_data)  # Debugging line
+
+        if json_data is None:
+            raise ValueError("Invalid JSON data")
+
+        # Create the Update object using the parsed JSON data
+        update = Update.de_json(json_data, bot.bot)
         
-        # Debug: Check the object type and content
-        print("Update object:", update)
-        
+        # Process the update with the bot
         bot.process_update(update)
         return 'OK'
+    
     except Exception as e:
         print("Error in Webhook:", str(e))
         print("Traceback:", traceback.format_exc())  # Print traceback for more detailed error logs
