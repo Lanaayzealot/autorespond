@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-from telegram.ext import Updater
 import traceback
 
 # Load environment variables
@@ -15,7 +14,7 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 app = Flask(__name__)
 
 # Initialize the bot application
-bot = Application.builder().token(TOKEN).build()  # Removed the invalid request_kwargs method
+bot = Application.builder().token(TOKEN).build()
 
 # Define handlers for the bot
 async def start(update: Update, context: CallbackContext) -> None:
@@ -72,6 +71,14 @@ def set_webhook() -> None:
     """Sets the webhook for the Telegram bot."""
     asyncio.run(bot.bot.set_webhook(WEBHOOK_URL))
 
+# This function runs the asynchronous loop in a separate thread
+def run_async_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
 if __name__ == '__main__':
-    set_webhook()
-    app.run(host='0.0.0.0', port=5000)
+    # Start the async event loop
+    asyncio.create_task(run_async_loop())  # Create a task to run the async loop
+    set_webhook()  # Set the webhook for the Telegram bot
+    app.run(host='0.0.0.0', port=5000)  # Run the Flask app
