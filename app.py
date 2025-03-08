@@ -30,6 +30,11 @@ async def auto_respond(update: Update, context: CallbackContext) -> None:
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_respond))
 
+@app.route('/')
+def home() -> str:
+    """Home route to check if the server is running."""
+    return "Telegram bot is running."
+
 @app.route('/webhook', methods=['POST'])
 async def webhook() -> str:
     """Handles incoming webhook requests from Telegram."""
@@ -45,6 +50,16 @@ async def webhook() -> str:
         # Use `bot.update_queue.put()` instead of `bot.process_update(update)`
         await bot.update_queue.put(update)
 
+        # Send a reply to the user for any incoming message
+        if update.message:
+            chat_id = update.message.chat.id
+            text = update.message.text
+            # Respond to the user based on the received message
+            if text.lower() == "/start":
+                await bot.bot.send_message(chat_id=chat_id, text="Welcome! How can I help you?")
+            else:
+                await bot.bot.send_message(chat_id=chat_id, text="Hello, I received your message!")
+
         return 'OK'
     
     except Exception as e:
@@ -55,11 +70,6 @@ async def webhook() -> str:
 def set_webhook() -> None:
     """Sets the webhook for the Telegram bot."""
     asyncio.run(bot.bot.set_webhook(WEBHOOK_URL))
-
-@app.route('/')
-def home() -> str:
-    """Home route to check if the server is running."""
-    return "Telegram bot is running."
 
 if __name__ == '__main__':
     set_webhook()
