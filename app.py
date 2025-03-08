@@ -20,10 +20,11 @@ async def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
-    """Auto-responds to any text message."""
-    # Check if the message contains the word 'Lana' (case-insensitive)
-    if 'lana' in update.message.text.lower():
-        update.message.reply_text('I am AFK at the moment. I will get back to you as soon as I can!')
+    """Auto-responds to any text message from the user with ID 7122508724."""
+    # Check if the message is from the user with ID 7122508724
+    if update.message.from_user.id == 7122508724:
+        # Send auto-response message
+        update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
 bot.add_handler(CommandHandler("start", start))
