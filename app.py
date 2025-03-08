@@ -1,15 +1,19 @@
 import os
 import asyncio
+import logging
 from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-import traceback
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -22,7 +26,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
-    """Auto-responds to any text message from the user with ID 7122508724."""
+    """Auto-responds to a specific user ID."""
     if update.message.from_user.id == 7122508724:
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
@@ -36,49 +40,38 @@ def home() -> str:
     return "Telegram bot is running."
 
 @app.route('/webhook', methods=['POST'])
-async def webhook() -> str:
+async def webhook() -> tuple[str, int]:
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
-        print("Incoming Update:", json_data)  # Debugging line
+        logger.info(f"Incoming Update: {json_data}")  # Logging for debugging
 
-        if json_data is None:
-            raise ValueError("Invalid JSON data")
+        if not json_data:
+            return 'Bad Request: No JSON received', 400
 
         update = Update.de_json(json_data, bot.bot)
 
-        # Use `bot.update_queue.put()` instead of `bot.process_update(update)`
+        # Queue the update for async processing
         await bot.update_queue.put(update)
 
-        # Send a reply to the user for any incoming message
-        if update.message:
-            chat_id = update.message.chat.id
-            text = update.message.text
-            # Respond to the user based on the received message
-            if text.lower() == "/start":
-                await bot.bot.send_message(chat_id=chat_id, text="Welcome! How can I help you?")
-            else:
-                await bot.bot.send_message(chat_id=chat_id, text="Hello, I received your message!")
-
-        return 'OK'
+        return 'OK', 200
     
     except Exception as e:
-        print("Error in Webhook:", str(e))
-        print("Traceback:", traceback.format_exc())
+        logger.error(f"Error in Webhook: {e}", exc_info=True)
         return 'Internal Server Error', 500
 
-def set_webhook() -> None:
-    """Sets the webhook for the Telegram bot."""
-    asyncio.run(bot.bot.set_webhook(WEBHOOK_URL))
-
-# This function runs the asynchronous loop in a separate thread
-def run_async_loop():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
+async def set_webhook() -> None:
+    """Sets the webhook for the Telegram bot asynchronously."""
+    try:
+        success = await bot.bot.set_webhook(WEBHOOK_URL)
+        if success:
+            logger.info("Webhook set successfully!")
+        else:
+            logger.error("Failed to set webhook.")
+    except Exception as e:
+        logger.error(f"Error setting webhook: {e}", exc_info=True)
 
 if __name__ == '__main__':
-    # Start the async event loop
-    asyncio.create_task(run_async_loop())  # Create a task to run the async loop
-    set_webhook()  # Set the webhook for the Telegram bot
+    # Start webhook setup before running the Flask app
+    asyncio.run(set_webhook())  # Properly runs the async webhook setup
     app.run(host='0.0.0.0', port=5000)  # Run the Flask app
