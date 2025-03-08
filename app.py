@@ -21,7 +21,9 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
     """Auto-responds to any text message."""
-    update.message.reply_text('I am AFK at the moment. I will get back to you as soon as I can!')
+    # Check if the message contains the word 'Lana' (case-insensitive)
+    if 'lana' in update.message.text.lower():
+        update.message.reply_text('I am AFK at the moment. I will get back to you as soon as I can!')
 
 # Register handlers
 bot.add_handler(CommandHandler("start", start))
