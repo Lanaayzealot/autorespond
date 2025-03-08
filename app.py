@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+import traceback
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,7 +31,6 @@ async def auto_respond(update: Update, context: CallbackContext) -> None:
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_respond))
 
-# Flask route to handle the webhook requests
 @app.route('/webhook', methods=['POST'])
 def webhook() -> str:
     """Handles incoming webhook requests from Telegram."""
@@ -38,10 +38,15 @@ def webhook() -> str:
         json_str = request.get_data().decode('UTF-8')
         print("Incoming Update:", json_str)  # Debugging line
         update = Update.de_json(json_str, bot.bot)
+        
+        # Debug: Check the object type and content
+        print("Update object:", update)
+        
         bot.process_update(update)
         return 'OK'
     except Exception as e:
         print("Error in Webhook:", str(e))
+        print("Traceback:", traceback.format_exc())  # Print traceback for more detailed error logs
         return 'Internal Server Error', 500
 
 def set_webhook() -> None:
