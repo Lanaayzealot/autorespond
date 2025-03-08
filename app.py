@@ -5,6 +5,8 @@ from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import traceback
+import time
+from telegram.error import TelegramError
 
 # Load environment variables
 load_dotenv()
@@ -13,8 +15,11 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 app = Flask(__name__)
 
-# Initialize the bot application
-bot = Application.builder().token(TOKEN).build()
+# Initialize the bot application with an increased connection pool and timeout
+bot = Application.builder().token(TOKEN).request_kwargs({
+    'pool_size': 20,  # Increase connection pool size
+    'timeout': 60      # Set a higher timeout to avoid timeouts
+}).build()
 
 # Define handlers for the bot
 async def start(update: Update, context: CallbackContext) -> None:
@@ -54,18 +59,29 @@ async def webhook() -> str:
         if update.message:
             chat_id = update.message.chat.id
             text = update.message.text
-            # Respond to the user based on the received message
+
+            # Respond to the user with a personalized message or a fallback response
             if text.lower() == "/start":
-                await bot.bot.send_message(chat_id=chat_id, text="Welcome! How can I help you?")
+                await send_message_with_retry(chat_id, "Welcome! How can I help you?")
             else:
-                await bot.bot.send_message(chat_id=chat_id, text="Hello, I received your message!")
+                await send_message_with_retry(chat_id, "Hello, I received your message!")
 
         return 'OK'
-    
+
     except Exception as e:
         print("Error in Webhook:", str(e))
         print("Traceback:", traceback.format_exc())
         return 'Internal Server Error', 500
+
+async def send_message_with_retry(chat_id: int, text: str):
+    """Send message with retry logic if a timeout occurs."""
+    try:
+        await bot.bot.send_message(chat_id=chat_id, text=text)
+    except TelegramError as e:
+        if 'Pool timeout' in str(e):
+            print("Connection pool timeout, retrying...")
+            time.sleep(2)  # Wait before retrying
+            await bot.bot.send_message(chat_id=chat_id, text=text)
 
 def set_webhook() -> None:
     """Sets the webhook for the Telegram bot."""
