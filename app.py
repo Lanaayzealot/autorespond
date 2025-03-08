@@ -32,7 +32,10 @@ async def auto_respond(update: Update, context: CallbackContext) -> None:
     logger.info(f"Received message from {user_id}: {update.message.text}")
 
     if user_id == 7122508724:
+        logger.info("Sending auto-response...")
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
+    else:
+        logger.info("Message ignored (not from the target user).")
 
 # Register handlers
 bot.add_handler(CommandHandler("start", start))
@@ -55,8 +58,8 @@ async def webhook() -> tuple[str, int]:
 
         update = Update.de_json(json_data, bot.bot)
 
-        # Queue update for processing
-        await bot.update_queue.put(update)
+        # Ensure the update is processed
+        await bot.process_update(update)
 
         return 'OK', 200
     
@@ -74,13 +77,6 @@ async def set_webhook() -> None:
     else:
         logger.error("Failed to set webhook.")
 
-async def run_bot() -> None:
-    """Runs the bot to process updates."""
-    await bot.initialize()
-    logger.info("Bot is running and processing updates.")
-    await bot.run_polling()
-
 if __name__ == '__main__':
     asyncio.run(set_webhook())  # Set webhook
-    asyncio.create_task(run_bot())  # Run bot in background
     app.run(host='0.0.0.0', port=5000)  # Run Flask app
