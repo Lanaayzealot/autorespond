@@ -13,7 +13,7 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 app = Flask(__name__)
 
@@ -23,11 +23,15 @@ bot = Application.builder().token(TOKEN).build()
 # Define handlers for the bot
 async def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command."""
+    logger.info(f"Processing /start from {update.message.from_user.id}")
     await update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
-    """Auto-responds to a specific user ID."""
-    if update.message.from_user.id == 7122508724:
+    """Auto-responds to messages from a specific user."""
+    user_id = update.message.from_user.id
+    logger.info(f"Received message from {user_id}: {update.message.text}")
+
+    if user_id == 7122508724:
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
@@ -44,14 +48,14 @@ async def webhook() -> tuple[str, int]:
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
-        logger.info(f"Incoming Update: {json_data}")  # Logging for debugging
+        logger.info(f"Incoming Update: {json_data}")
 
         if not json_data:
             return 'Bad Request: No JSON received', 400
 
         update = Update.de_json(json_data, bot.bot)
 
-        # Queue the update for async processing
+        # Queue update for processing
         await bot.update_queue.put(update)
 
         return 'OK', 200
@@ -62,16 +66,21 @@ async def webhook() -> tuple[str, int]:
 
 async def set_webhook() -> None:
     """Sets the webhook for the Telegram bot asynchronously."""
-    try:
-        success = await bot.bot.set_webhook(WEBHOOK_URL)
-        if success:
-            logger.info("Webhook set successfully!")
-        else:
-            logger.error("Failed to set webhook.")
-    except Exception as e:
-        logger.error(f"Error setting webhook: {e}", exc_info=True)
+    await bot.initialize()  # Ensure bot is properly initialized
+    success = await bot.bot.set_webhook(WEBHOOK_URL)
+    
+    if success:
+        logger.info("Webhook set successfully!")
+    else:
+        logger.error("Failed to set webhook.")
+
+async def run_bot() -> None:
+    """Runs the bot to process updates."""
+    await bot.initialize()
+    logger.info("Bot is running and processing updates.")
+    await bot.run_polling()
 
 if __name__ == '__main__':
-    # Start webhook setup before running the Flask app
-    asyncio.run(set_webhook())  # Properly runs the async webhook setup
-    app.run(host='0.0.0.0', port=5000)  # Run the Flask app
+    asyncio.run(set_webhook())  # Set webhook
+    asyncio.create_task(run_bot())  # Run bot in background
+    app.run(host='0.0.0.0', port=5000)  # Run Flask app
