@@ -8,12 +8,15 @@ load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 async def start(update: Update, context: CallbackContext) -> None:
+    """Handles the /start command."""
     update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
+    """Auto-responds to any text message."""
     update.message.reply_text('I am AFK at the moment. I will get back to you as soon as I can!')
 
 def main() -> None:
+    """Main function to start the bot."""
     # Initialize the bot application
     app = Application.builder().token(TOKEN).build()
 
