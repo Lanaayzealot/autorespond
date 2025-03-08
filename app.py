@@ -11,71 +11,65 @@ load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
-# Configure logging
+# Enable logging for debugging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("app")
+logger = logging.getLogger(__name__)
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# Initialize the bot application
+# Initialize the bot properly
 bot = Application.builder().token(TOKEN).build()
 
-# Define handlers for the bot
 async def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command."""
-    logger.info(f"Processing /start from {update.message.from_user.id}")
     await update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
-    """Auto-responds to messages from a specific user."""
-    user_id = update.message.from_user.id
-    logger.info(f"Received message from {user_id}: {update.message.text}")
-
-    if user_id == 7122508724:
-        logger.info("Sending auto-response...")
+    """Auto-responds to any text message from the user with ID 7122508724."""
+    if update.message.from_user.id == 7122508724:
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
-    else:
-        logger.info("Message ignored (not from the target user).")
 
 # Register handlers
 bot.add_handler(CommandHandler("start", start))
 bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, auto_respond))
 
 @app.route('/')
-def home() -> str:
+def home():
     """Home route to check if the server is running."""
     return "Telegram bot is running."
 
 @app.route('/webhook', methods=['POST'])
-async def webhook() -> tuple[str, int]:
+async def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
-        logger.info(f"Incoming Update: {json_data}")
+        logger.info(f"Incoming Update: {json_data}")  # Log incoming updates
 
         if not json_data:
-            return 'Bad Request: No JSON received', 400
+            raise ValueError("Invalid JSON data")
 
         update = Update.de_json(json_data, bot.bot)
-
-        # Ensure the update is processed
-        await bot.process_update(update)
+        await bot.process_update(update)  # Process the update
 
         return 'OK', 200
-    
+
     except Exception as e:
         logger.error(f"Error in Webhook: {e}", exc_info=True)
         return 'Internal Server Error', 500
 
-async def main():
-    """Initialize the bot and set up the webhook."""
-    await bot.initialize()  # Ensure bot is properly initialized
+async def set_webhook():
+    """Sets the webhook for the Telegram bot."""
     await bot.bot.set_webhook(WEBHOOK_URL)
-    logger.info("Webhook set successfully!")
 
-    # Run Flask app in an async event loop
+async def main():
+    """Initialize the bot and start Flask."""
+    await bot.initialize()  # Ensure bot is initialized
+    await set_webhook()  # Set webhook
+
+    # Run Flask app (using async mode)
     loop = asyncio.get_running_loop()
-    loop.run_in_executor(None, app.run, "0.0.0.0", 5000)
+    loop.create_task(app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False))
 
 if __name__ == '__main__':
-    asyncio.run(main())  # Initialize bot and start the webhook
+    asyncio.run(main())  # Run the bot in an event loop
