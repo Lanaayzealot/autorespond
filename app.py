@@ -26,8 +26,12 @@ async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Hello! I am your auto-responder bot.')
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
-    """Auto-responds to any text message from any user except the bot itself."""
-    if update.message.from_user.id != bot.bot.id:  # Ensure the bot does not respond to itself
+    """Auto-responds to any text message from users mentioning 'Lana'."""
+    user_id = update.message.from_user.id
+    message_text = update.message.text.lower()
+    
+    # Ensure bot responds only when 'Lana' is mentioned and not to the user 'Lana' themselves
+    if 'lana' in message_text and user_id != bot.bot.id:  # The bot does not respond to itself
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
@@ -49,11 +53,11 @@ async def webhook():
         if not json_data:
             raise ValueError("Invalid JSON data")
 
+        update = Update.de_json(json_data, bot.bot)
+
         # Ensure bot is initialized before processing updates
         if not bot._initialized:
             await bot.initialize()
-
-        update = Update.de_json(json_data, bot.bot)
 
         await bot.process_update(update)  # Process the update
 
