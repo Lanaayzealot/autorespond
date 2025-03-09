@@ -27,8 +27,7 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 async def auto_respond(update: Update, context: CallbackContext) -> None:
     """Auto-responds to any text message from any user except the bot itself."""
-    user_id = update.message.from_user.id
-    if user_id != bot.bot.id:  # Ensure the bot does not respond to itself
+    if update.message.from_user.id != bot.bot.id:  # Ensure the bot does not respond to itself
         await update.message.reply_text("Hi. I am currently AFK, I'll get back to you as soon as I can. Respectfully, Lana")
 
 # Register handlers
@@ -50,10 +49,13 @@ async def webhook():
         if not json_data:
             raise ValueError("Invalid JSON data")
 
+        # Ensure bot is initialized before processing updates
+        if not bot._initialized:
+            await bot.initialize()
+
         update = Update.de_json(json_data, bot.bot)
 
-        # Process the update with asyncio
-        await bot.process_update(update)
+        await bot.process_update(update)  # Process the update
 
         return 'OK', 200
 
@@ -65,21 +67,23 @@ async def set_webhook():
     """Sets the webhook for the Telegram bot."""
     await bot.bot.set_webhook(WEBHOOK_URL)
 
-async def run_flask():
-    """Run Flask app in a separate thread without blocking the asyncio event loop."""
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, lambda: app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False))
+def run_flask():
+    """Runs Flask in a separate thread to avoid event loop conflicts."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 async def main():
-    """Set webhook, start Flask app, and keep bot running."""
-    # Set webhook for the Telegram bot
-    await set_webhook()
+    """Initialize the bot, set webhook, and start Flask."""
+    await bot.initialize()  # Ensure bot is initialized
+    await set_webhook()  # Set webhook
 
     # Run Flask in a separate thread to avoid blocking the event loop
-    await run_flask()
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, run_flask)
 
-    # Keep the bot running and handling updates
-    await asyncio.Event().wait()
+    # Keep the bot running
+    await bot.run_polling()
 
 if __name__ == '__main__':
     asyncio.run(main())  # Run the bot in an event loop
