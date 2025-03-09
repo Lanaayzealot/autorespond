@@ -45,4 +45,46 @@ async def webhook():
     """Handles incoming webhook requests from Telegram."""
     try:
         json_data = request.get_json()
-        logge
+        logger.info(f"Incoming Update: {json_data}")  # Log incoming updates
+
+        if not json_data:
+            raise ValueError("Invalid JSON data")
+
+        update = Update.de_json(json_data, bot.bot)
+
+        # Ensure bot is initialized before processing updates
+        if not bot._initialized:
+            await bot.initialize()
+
+        await bot.process_update(update)  # Process the update
+
+        return 'OK', 200
+
+    except Exception as e:
+        logger.error(f"Error in Webhook: {e}", exc_info=True)
+        return 'Internal Server Error', 500
+
+async def set_webhook():
+    """Sets the webhook for the Telegram bot."""
+    await bot.bot.set_webhook(WEBHOOK_URL)
+
+def run_flask():
+    """Runs Flask in a separate thread to avoid event loop conflicts."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+
+async def main():
+    """Initialize the bot, set webhook, and start Flask."""
+    await bot.initialize()  # Ensure bot is initialized
+    await set_webhook()  # Set webhook
+
+    # Run Flask in a separate thread to avoid blocking the event loop
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, run_flask)
+
+    # Keep the bot running
+    await bot.run_polling()
+
+if __name__ == '__main__':
+    asyncio.run(main())  # Run the bot in an event loop
