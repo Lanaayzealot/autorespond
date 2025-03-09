@@ -71,14 +71,14 @@ async def run_flask():
     loop.run_in_executor(None, lambda: app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False))
 
 async def main():
-    """Initialize the bot, set webhook, and start Flask."""
-    await bot.initialize()  # Ensure bot is initialized
-    await set_webhook()  # Set webhook for the Telegram bot
+    """Set webhook, start Flask app, and keep bot running."""
+    # Set webhook for the Telegram bot
+    await set_webhook()
 
     # Run Flask in a separate thread to avoid blocking the event loop
     await run_flask()
 
-    # Keep the bot running and handle webhook updates
+    # Keep the bot running and handling updates
     await asyncio.Event().wait()
 
 if __name__ == '__main__':
